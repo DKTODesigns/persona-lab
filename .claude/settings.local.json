@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(winget install *)",
+      "Bash(powershell -NoProfile -Command \"[System.Environment]::GetEnvironmentVariable\\('Path','Machine'\\)\")",
+      "Bash(powershell -NoProfile -Command \"[System.Environment]::GetEnvironmentVariable\\('Path','User'\\)\")",
+      "Bash(curl -s http://localhost:3000/ -o /tmp/page.html -w \"HTTP %{http_code}\\\\n\")",
+      "Read(//tmp/**)",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='node.exe'\\\\\" | Select-Object ProcessId, CommandLine | Format-List\")",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 28020,29368,25072,29096 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='node.exe'\\\\\" | Select-Object ProcessId, CommandLine\")",
+      "Bash(curl -s http://localhost:3000/ -o /tmp/page2.html -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3010 } | Select-Object LocalPort, OwningProcess')",
+      "Bash(curl -s http://localhost:3001/ -o /tmp/page3.html -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"ProcessId=29844 or ProcessId=20492\\\\\" | Select-Object ProcessId, CreationDate, ParentProcessId\")",
+      "Bash(curl -s -i http://localhost:3000/)",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 46396,25000,12128,20492 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='node.exe'\\\\\" | Select-Object ProcessId, CreationDate\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -X POST http://localhost:3000/api/personas -H \"Content-Type: application/json\" -d '{\"productDescription\":\"test\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl *)",
+      "Bash(powershell -NoProfile -Command 'Get-CimInstance Win32_Process -Filter \"Name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -like '\\\\''*next*dev*'\\\\'' -or $_.CommandLine -like '\\\\''*next*start*'\\\\'' } | Select-Object ProcessId, CreationDate')",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='node.exe'\\\\\" | Select-Object ProcessId, CreationDate, ParentProcessId, CommandLine | Format-List\")",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 59636,56124,50348,27788,21020 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='node.exe'\\\\\" | Select-Object ProcessId, CreationDate, CommandLine | Format-List\")",
+      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3005 } | Select-Object LocalPort, OwningProcess')",
+      "Bash(curl -s -w '\\\\n---CURL DONE--- http_code=%{http_code} time_total=%{time_total}s\\\\n' -X POST http://localhost:3000/api/personas -H 'Content-Type: application/json' -d '{\"productDescription\":\"Aurora Calm is an AI-powered emotional wellness application that helps users manage stress through conversational check-ins, guided coping strategies, and private journaling.\",\"targetContext\":\"\",\"knownUserData\":\"\",\"personaCount\":2}' --max-time 150 -o /tmp/curl-response-body.json)",
+      "Bash(echo \"curl started with pid $!\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='curl.exe'\\\\\" | Select-Object ProcessId, CreationDate, CommandLine\")",
+      "Bash(powershell -NoProfile -Command \"Get-Process -Id 31400,50412,62360,26596,52528 -ErrorAction SilentlyContinue | Select-Object Id, CPU, WorkingSet64, Responding | Format-Table -AutoSize\")",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 52528,26596,62360,50412,31400 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3005 } | Select-Object LocalPort, OwningProcess')",
+      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3010 } | Select-Object LocalPort, OwningProcess')"
+    ]
+  }
+}
