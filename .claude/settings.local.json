@@ -30,7 +30,9 @@
       "Bash(powershell -NoProfile -Command \"Get-Process -Id 31400,50412,62360,26596,52528 -ErrorAction SilentlyContinue | Select-Object Id, CPU, WorkingSet64, Responding | Format-Table -AutoSize\")",
       "Bash(powershell -NoProfile -Command \"Stop-Process -Id 52528,26596,62360,50412,31400 -Force -ErrorAction SilentlyContinue\")",
       "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3005 } | Select-Object LocalPort, OwningProcess')",
-      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3010 } | Select-Object LocalPort, OwningProcess')"
+      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3010 } | Select-Object LocalPort, OwningProcess')",
+      "Bash(echo \"lucide-react installed: $?\")",
+      "Bash(powershell -NoProfile -Command 'Get-CimInstance Win32_Process -Filter \"Name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -like '\\\\''*next*dev*'\\\\'' } | Select-Object ProcessId, CreationDate')"
     ]
   }
 }

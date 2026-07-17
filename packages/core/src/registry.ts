@@ -1,4 +1,5 @@
 import type { Module } from "./engine/defineModule";
+import { interviewResponseModule } from "./modules/interviewResponse";
 import { personaGeneratorModule } from "./modules/personaGenerator";
 
 /**
@@ -10,7 +11,7 @@ import { personaGeneratorModule } from "./modules/personaGenerator";
  * file with defineModule(), then add one line here.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const modules: Module<any, any>[] = [personaGeneratorModule];
+const modules: Module<any, any>[] = [personaGeneratorModule, interviewResponseModule];
 
 export interface ModuleSummary {
   id: string;

@@ -22,6 +22,7 @@ interface PersonaResultsProps {
   input: PersonaGeneratorInput;
   result: PersonaGeneratorOutput;
   onRegenerate: () => void;
+  onStartInterview: (personaIndex: number) => void;
 }
 
 type ClaimCategory = "goals" | "frustrations" | "behaviors" | "contextOfUse" | "accessibilityConsiderations";
@@ -44,6 +45,23 @@ const CATEGORY_ICONS: Record<ClaimCategory, typeof TargetIcon> = {
 
 const CATEGORY_KEYS = Object.keys(CATEGORY_LABELS) as ClaimCategory[];
 
+const CONFIDENCE_TEXT_LABELS: Record<ConfidenceLevel, string> = {
+  evidence: "Evidence",
+  inference: "Inference",
+  assumption: "Assumption",
+  unknown: "Unknown",
+};
+
+// Solid fills for the compact distribution bar — same hue family as the
+// outlined ConfidenceBadge colors, adapted for a filled segment rather than
+// a bordered pill.
+const DISTRIBUTION_BAR_COLORS: Record<ConfidenceLevel, string> = {
+  evidence: "bg-emerald-600",
+  inference: "bg-blue-600",
+  assumption: "bg-amber-500",
+  unknown: "bg-slate-400",
+};
+
 function personaHasEvidence(persona: Persona): boolean {
   return CATEGORY_KEYS.some((key) => persona[key].some((claim) => claim.confidence === "evidence"));
 }
@@ -62,7 +80,7 @@ function countClaimsByConfidence(persona: Persona): Record<ConfidenceLevel, numb
   return counts;
 }
 
-export function PersonaResults({ input, result, onRegenerate }: PersonaResultsProps) {
+export function PersonaResults({ input, result, onRegenerate, onStartInterview }: PersonaResultsProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -75,6 +93,13 @@ export function PersonaResults({ input, result, onRegenerate }: PersonaResultsPr
   const selectedPersona = result.personas[selectedIndex] ?? result.personas[0]!;
   const showEvidenceSources = Boolean(input.knownUserData) && personaHasEvidence(selectedPersona);
   const confidenceCounts = countClaimsByConfidence(selectedPersona);
+  const totalClaims = CONFIDENCE_ORDER.reduce((sum, level) => sum + confidenceCounts[level], 0);
+  const distributionLabel =
+    totalClaims > 0
+      ? `Claim distribution: ${CONFIDENCE_ORDER.map(
+          (level) => `${CONFIDENCE_TEXT_LABELS[level]} ${confidenceCounts[level]}`
+        ).join(", ")}`
+      : "No claims classified yet";
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const count = result.personas.length;
@@ -153,44 +178,56 @@ export function PersonaResults({ input, result, onRegenerate }: PersonaResultsPr
 
       <div className="grid grid-cols-1 gap-8 pt-6 lg:grid-cols-[1fr_320px]">
         <div>
-          <div role="tablist" aria-label="Personas" className="flex flex-wrap gap-4">
-            {result.personas.map((persona, index) => {
-              const selected = index === selectedIndex;
-              return (
-                <button
-                  key={persona.name}
-                  ref={(el) => {
-                    tabRefs.current[index] = el;
-                  }}
-                  type="button"
-                  role="tab"
-                  id={`persona-tab-${index}`}
-                  aria-selected={selected}
-                  aria-controls={`persona-panel-${index}`}
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => setSelectedIndex(index)}
-                  onKeyDown={(event) => handleTabKeyDown(event, index)}
-                  className={cn(
-                    "flex w-44 shrink-0 origin-center cursor-pointer flex-col items-center gap-3 rounded-lg border px-5 py-5 text-center transition-all duration-200 ease-out sm:w-52",
-                    FOCUS_RING_CLASSES,
-                    selected
-                      ? "scale-[1.03] border-2 border-blue-700 bg-blue-50 shadow-lg"
-                      : "border-slate-200 bg-white shadow-none hover:border-slate-300 hover:shadow-md"
-                  )}
-                >
-                  <PersonaAvatar name={persona.name} className="h-12 w-12 text-base" />
-                  <span className="w-full truncate text-base font-semibold text-slate-900">{persona.name}</span>
-                  <span
+          {/*
+            Sticky only at lg: (matches the aside's breakpoint below). The
+            scroll container is <main> in app-shell.tsx, and the header lives
+            outside it, so top-8 only needs to clear this element's own edge.
+            bg-slate-50 matches the page background so scrolled content
+            doesn't show through behind/between the cards, and pb-4 gives the
+            sticky band a clean trailing edge before the panel below. No
+            overflow is set here, so there's no internal scroll area and the
+            selected card's shadow/scale are never clipped.
+          */}
+          <div className="lg:sticky lg:top-8 lg:z-10 lg:-mx-1 lg:bg-slate-50 lg:px-1 lg:pb-4">
+            <div role="tablist" aria-label="Personas" className="flex flex-wrap gap-4">
+              {result.personas.map((persona, index) => {
+                const selected = index === selectedIndex;
+                return (
+                  <button
+                    key={persona.name}
+                    ref={(el) => {
+                      tabRefs.current[index] = el;
+                    }}
+                    type="button"
+                    role="tab"
+                    id={`persona-tab-${index}`}
+                    aria-selected={selected}
+                    aria-controls={`persona-panel-${index}`}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => setSelectedIndex(index)}
+                    onKeyDown={(event) => handleTabKeyDown(event, index)}
                     className={cn(
-                      "w-full truncate text-sm",
-                      selected ? "text-slate-600" : "text-slate-500"
+                      "flex w-44 shrink-0 origin-center cursor-pointer flex-col items-center gap-3 rounded-lg border px-5 py-5 text-center transition-all duration-200 ease-out sm:w-52",
+                      FOCUS_RING_CLASSES,
+                      selected
+                        ? "scale-[1.03] border-2 border-blue-700 bg-blue-50 shadow-lg"
+                        : "border-slate-200 bg-white shadow-none hover:border-slate-300 hover:shadow-md"
                     )}
                   >
-                    {persona.summary}
-                  </span>
-                </button>
-              );
-            })}
+                    <PersonaAvatar name={persona.name} className="h-12 w-12 text-base" />
+                    <span className="w-full truncate text-base font-semibold text-slate-900">{persona.name}</span>
+                    <span
+                      className={cn(
+                        "w-full truncate text-sm",
+                        selected ? "text-slate-600" : "text-slate-500"
+                      )}
+                    >
+                      {persona.summary}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div
@@ -210,7 +247,24 @@ export function PersonaResults({ input, result, onRegenerate }: PersonaResultsPr
 
             <div className="mt-5">
               <p className="text-sm font-medium text-slate-500">Claim confidence summary</p>
-              <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div
+                role="img"
+                aria-label={distributionLabel}
+                className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-slate-200"
+              >
+                {totalClaims > 0
+                  ? CONFIDENCE_ORDER.map((level) =>
+                      confidenceCounts[level] > 0 ? (
+                        <div
+                          key={level}
+                          className={DISTRIBUTION_BAR_COLORS[level]}
+                          style={{ width: `${(confidenceCounts[level] / totalClaims) * 100}%` }}
+                        />
+                      ) : null
+                    )
+                  : null}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {CONFIDENCE_ORDER.map((level) => (
                   <div
                     key={level}
@@ -287,12 +341,12 @@ export function PersonaResults({ input, result, onRegenerate }: PersonaResultsPr
           <Button variant="ghost" onClick={onRegenerate}>
             Adjust inputs &amp; regenerate
           </Button>
+          <Button variant="secondary" onClick={() => onStartInterview(selectedIndex)}>
+            Start interview
+          </Button>
         </div>
         <p aria-live="polite" className="sr-only">
           {copyStatus === "copied" ? "Copied to clipboard" : ""}
-        </p>
-        <p className="text-sm text-slate-500">
-          Simulate an interview — <span className="font-medium">coming soon</span>
         </p>
       </div>
     </div>

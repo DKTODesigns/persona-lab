@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PersonaGeneratorInput, PersonaGeneratorOutput } from "@personalab/core";
+import type { Persona, PersonaGeneratorInput, PersonaGeneratorOutput } from "@personalab/core";
 import { PIPELINE_STAGES } from "@/lib/pipeline-stages";
 import { DEFAULT_PERSONA_FORM_VALUES, type PersonaFormValues } from "@/lib/types";
 import { ApiErrorState } from "./api-error-state";
@@ -9,14 +9,20 @@ import { AppShell } from "./app-shell";
 import { ConfidenceLegend } from "./confidence-legend";
 import { GeneratingState } from "./generating-state";
 import { LightbulbIcon, LockIcon } from "./icons";
+import { InterviewSimulator } from "./interview-simulator/interview-simulator";
+import { generateMockParticipantResponse } from "./interview-simulator/mock-interview-responses";
+import type { InterviewMessage } from "./interview-simulator/types";
 import { PersonaInputForm } from "./persona-input-form";
 import { PersonaResults } from "./persona-results";
 import { TrustBanner } from "./trust-banner";
 
-type Screen = "input" | "generating" | "results" | "error";
+type Screen = "input" | "generating" | "results" | "error" | "interview";
 
 const GENERIC_ERROR_MESSAGE =
   "PersonaLab couldn't generate personas from that input just now. This wasn't caused by anything you entered — please try again.";
+
+const GENERIC_INTERVIEW_ERROR_MESSAGE =
+  "PersonaLab couldn't generate a response just now. This wasn't caused by anything you asked — please try again.";
 
 function toModuleInput(values: PersonaFormValues): PersonaGeneratorInput {
   return {
@@ -29,6 +35,12 @@ function toModuleInput(values: PersonaFormValues): PersonaGeneratorInput {
 
 interface ApiErrorPayload {
   error?: { type?: string; message?: string };
+}
+
+interface InterviewApiResult {
+  answer: string;
+  confidence: InterviewMessage["confidenceLabel"];
+  confidenceRationale?: string;
 }
 
 export function ResearchWorkflow() {
@@ -45,9 +57,22 @@ export function ResearchWorkflow() {
   // an error instead of leaving the UI frozen on the loading screen forever.
   const cancelledRef = useRef(false);
 
+  // Interview Simulator state, lifted up here (not owned by the screen
+  // component itself) so it survives navigating away and back — mirrors how
+  // `result`/`formValues` already survive screen switches. Keyed by persona
+  // index into `result.personas` rather than storing personas separately, so
+  // there's exactly one copy of persona data (no schema/data duplication).
+  const [interviewPersonaIndex, setInterviewPersonaIndex] = useState(0);
+  const [interviewConversations, setInterviewConversations] = useState<Record<number, InterviewMessage[]>>({});
+  const [isSendingInterview, setIsSendingInterview] = useState(false);
+  const [interviewErrorMessage, setInterviewErrorMessage] = useState<string | null>(null);
+  const interviewAbortRef = useRef<AbortController | null>(null);
+  const interviewCancelledRef = useRef(false);
+
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      interviewAbortRef.current?.abort();
     };
   }, []);
 
@@ -83,6 +108,8 @@ export function ResearchWorkflow() {
       // model response, so once it's back, every stage is genuinely done.
       setPipelineStage(PIPELINE_STAGES.length);
       setResult(payload.result);
+      setInterviewConversations({});
+      setInterviewPersonaIndex(0);
       setScreen("results");
     } catch (err) {
       if (cancelledRef.current) {
@@ -104,19 +131,141 @@ export function ResearchWorkflow() {
   }
 
   function goToPersonas() {
+    // Leaving the interview screen (via "Change persona" or sidebar nav)
+    // shouldn't leave a stale request/error hanging around for whichever
+    // persona's conversation is shown next.
+    interviewCancelledRef.current = true;
+    interviewAbortRef.current?.abort();
+    setIsSendingInterview(false);
+    setInterviewErrorMessage(null);
     if (result) setScreen("results");
+  }
+
+  function goToInterviewSimulator(personaIndex = interviewPersonaIndex) {
+    if (!result) return;
+    setInterviewErrorMessage(null);
+    setInterviewPersonaIndex(personaIndex);
+    setScreen("interview");
   }
 
   function handleRetry() {
     void runGeneration(formValues);
   }
 
+  async function requestParticipantResponse(
+    persona: Persona,
+    personaIndex: number,
+    questionText: string,
+    historyBeforeQuestion: InterviewMessage[]
+  ) {
+    interviewCancelledRef.current = false;
+    setInterviewErrorMessage(null);
+    setIsSendingInterview(true);
+
+    const controller = new AbortController();
+    interviewAbortRef.current = controller;
+
+    try {
+      const response = await fetch("/api/interview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          persona,
+          messages: historyBeforeQuestion,
+          question: questionText,
+          productDescription: formValues.productDescription,
+          targetContext: formValues.targetContext || undefined,
+          knownUserData: formValues.knownUserData || undefined,
+        }),
+        signal: controller.signal,
+      });
+
+      const payload = (await response.json()) as ApiErrorPayload & { result?: InterviewApiResult };
+
+      if (!response.ok || !payload.result) {
+        setInterviewErrorMessage(payload.error?.message ?? GENERIC_INTERVIEW_ERROR_MESSAGE);
+        return;
+      }
+
+      const participantMessage: InterviewMessage = {
+        role: "participant",
+        text: payload.result.answer,
+        confidenceLabel: payload.result.confidence,
+      };
+      setInterviewConversations((prev) => ({
+        ...prev,
+        [personaIndex]: [...(prev[personaIndex] ?? []), participantMessage],
+      }));
+    } catch (err) {
+      if (interviewCancelledRef.current) {
+        // We aborted this ourselves (Cancel) — nothing to show.
+        return;
+      }
+      setInterviewErrorMessage(GENERIC_INTERVIEW_ERROR_MESSAGE);
+    } finally {
+      setIsSendingInterview(false);
+      interviewAbortRef.current = null;
+    }
+  }
+
+  function handleSendInterviewQuestion(questionText: string) {
+    const persona = result?.personas[interviewPersonaIndex];
+    if (!persona || isSendingInterview) return; // duplicate-submission guard
+
+    const historyBeforeQuestion = interviewConversations[interviewPersonaIndex] ?? [];
+    const researcherMessage: InterviewMessage = { role: "researcher", text: questionText };
+    setInterviewConversations((prev) => ({
+      ...prev,
+      [interviewPersonaIndex]: [...(prev[interviewPersonaIndex] ?? []), researcherMessage],
+    }));
+
+    void requestParticipantResponse(persona, interviewPersonaIndex, questionText, historyBeforeQuestion);
+  }
+
+  function handleRetryInterviewQuestion() {
+    const persona = result?.personas[interviewPersonaIndex];
+    const existing = interviewConversations[interviewPersonaIndex] ?? [];
+    const lastMessage = existing[existing.length - 1];
+    if (!persona || !lastMessage || lastMessage.role !== "researcher" || isSendingInterview) return;
+
+    const historyBeforeQuestion = existing.slice(0, -1);
+    void requestParticipantResponse(persona, interviewPersonaIndex, lastMessage.text, historyBeforeQuestion);
+  }
+
+  function handleUseMockInterviewResponse() {
+    const persona = result?.personas[interviewPersonaIndex];
+    const existing = interviewConversations[interviewPersonaIndex] ?? [];
+    const lastMessage = existing[existing.length - 1];
+    if (!persona || !lastMessage || lastMessage.role !== "researcher") return;
+
+    const historyBeforeQuestion = existing.slice(0, -1);
+    const mockResponse: InterviewMessage = {
+      ...generateMockParticipantResponse(persona, lastMessage.text, historyBeforeQuestion),
+      source: "mock",
+    };
+    setInterviewConversations((prev) => ({
+      ...prev,
+      [interviewPersonaIndex]: [...existing, mockResponse],
+    }));
+    setInterviewErrorMessage(null);
+  }
+
+  function handleCancelInterviewRequest() {
+    interviewCancelledRef.current = true;
+    interviewAbortRef.current?.abort();
+    setIsSendingInterview(false);
+    setInterviewErrorMessage(null);
+  }
+
   return (
     <AppShell
-      activeSection={screen === "results" ? "personas" : "start-research"}
+      activeSection={
+        screen === "interview" ? "interview-simulator" : screen === "results" ? "personas" : "start-research"
+      }
       personasEnabled={result !== null}
       onNavigateStartResearch={goToInput}
       onNavigatePersonas={goToPersonas}
+      onNavigateInterviewSimulator={() => goToInterviewSimulator()}
     >
       <TrustBanner compact={screen !== "input"} />
 
@@ -170,7 +319,27 @@ export function ResearchWorkflow() {
       ) : null}
 
       {screen === "results" && result ? (
-        <PersonaResults input={toModuleInput(formValues)} result={result} onRegenerate={goToInput} />
+        <PersonaResults
+          input={toModuleInput(formValues)}
+          result={result}
+          onRegenerate={goToInput}
+          onStartInterview={goToInterviewSimulator}
+        />
+      ) : null}
+
+      {screen === "interview" && result ? (
+        <InterviewSimulator
+          persona={result.personas[interviewPersonaIndex] ?? result.personas[0]!}
+          openQuestions={result.openQuestions}
+          conversation={interviewConversations[interviewPersonaIndex] ?? []}
+          onSendQuestion={handleSendInterviewQuestion}
+          onChangePersona={goToPersonas}
+          isSending={isSendingInterview}
+          error={interviewErrorMessage}
+          onRetry={handleRetryInterviewQuestion}
+          onUseMockResponse={handleUseMockInterviewResponse}
+          onCancel={handleCancelInterviewRequest}
+        />
       ) : null}
     </AppShell>
   );

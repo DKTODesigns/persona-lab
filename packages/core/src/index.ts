@@ -18,5 +18,13 @@ export {
 } from "./modules/personaGenerator";
 export type { PersonaGeneratorInput, PersonaGeneratorOutput, Persona } from "./modules/personaGenerator";
 
+export {
+  interviewResponseModule,
+  InterviewResponseInputSchema,
+  InterviewResponseOutputSchema,
+  InterviewConfidenceSchema,
+} from "./modules/interviewResponse";
+export type { InterviewResponseInput, InterviewResponseOutput, InterviewConfidence } from "./modules/interviewResponse";
+
 export { listModules, getModule, registerModule } from "./registry";
 export type { ModuleSummary } from "./registry";

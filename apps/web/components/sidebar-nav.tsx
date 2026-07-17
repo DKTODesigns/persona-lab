@@ -3,17 +3,17 @@
 import { FOCUS_RING_CLASSES } from "@/lib/a11y";
 import { cn } from "@/lib/cn";
 
-export type SidebarSection = "start-research" | "personas";
+export type SidebarSection = "start-research" | "personas" | "interview-simulator";
 
 interface SidebarNavProps {
   activeSection: SidebarSection;
   personasEnabled: boolean;
   onNavigateStartResearch: () => void;
   onNavigatePersonas: () => void;
+  onNavigateInterviewSimulator: () => void;
 }
 
 const UPCOMING_MODULES = [
-  "Interview Simulator",
   "Journey Mapping",
   "Accessibility Review",
   "Usability Analysis",
@@ -26,6 +26,7 @@ export function SidebarNav({
   personasEnabled,
   onNavigateStartResearch,
   onNavigatePersonas,
+  onNavigateInterviewSimulator,
 }: SidebarNavProps) {
   return (
     <nav aria-label="Research modules" className="flex h-full flex-col gap-1 overflow-y-auto p-4">
@@ -36,6 +37,13 @@ export function SidebarNav({
         disabled={!personasEnabled}
         disabledHint="Generate personas to view results"
         onClick={onNavigatePersonas}
+      />
+      <SidebarItem
+        label="Interview Simulator"
+        active={activeSection === "interview-simulator"}
+        disabled={!personasEnabled}
+        disabledHint="Generate personas before starting a simulated interview"
+        onClick={onNavigateInterviewSimulator}
       />
 
       <div className="mt-6 border-t border-slate-200 pt-4">

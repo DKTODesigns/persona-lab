@@ -10,6 +10,7 @@ interface AppShellProps {
   personasEnabled: boolean;
   onNavigateStartResearch: () => void;
   onNavigatePersonas: () => void;
+  onNavigateInterviewSimulator: () => void;
   children: ReactNode;
 }
 
@@ -18,6 +19,7 @@ export function AppShell({
   personasEnabled,
   onNavigateStartResearch,
   onNavigatePersonas,
+  onNavigateInterviewSimulator,
   children,
 }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -79,6 +81,7 @@ export function AppShell({
             personasEnabled={personasEnabled}
             onNavigateStartResearch={() => handleNavigate(onNavigateStartResearch)}
             onNavigatePersonas={() => handleNavigate(onNavigatePersonas)}
+            onNavigateInterviewSimulator={() => handleNavigate(onNavigateInterviewSimulator)}
           />
         </div>
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
